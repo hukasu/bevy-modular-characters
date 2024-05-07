@@ -5,4 +5,4 @@ The models were taken from the Quaternius [Ultimate Modular Women](https://quate
 
 This example uses the Adventurer, SciFi, Soldier and Witch models with minor adjustments. The original
 models contain one (1) scene that loads the Armature and the meshes (head, torso, legs, and feet). Also included
-is 2 models with that have most of it's content deleted, that were used by Snowden on his video.
+is 2 models that were used by Snowden on his video, that have most of it's content deleted.
