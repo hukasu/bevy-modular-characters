@@ -8,6 +8,44 @@
         {
             "name" : "Scene",
             "nodes" : [
+                63,
+                64,
+                65,
+                66,
+                67
+            ]
+        },
+        {
+            "name" : "Armature",
+            "nodes" : [
+                67
+            ]
+        },
+        {
+            "name" : "Head",
+            "nodes" : [
+                65,
+                67
+            ]
+        },
+        {
+            "name" : "Body",
+            "nodes" : [
+                63,
+                67
+            ]
+        },
+        {
+            "name" : "Legs",
+            "nodes" : [
+                66,
+                67
+            ]
+        },
+        {
+            "name" : "Feet",
+            "nodes" : [
+                64,
                 67
             ]
         }
@@ -1339,10 +1377,6 @@
         },
         {
             "children" : [
-                63,
-                64,
-                65,
-                66,
                 62
             ],
             "name" : "CharacterArmature"
