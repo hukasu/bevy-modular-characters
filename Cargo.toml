@@ -1,0 +1,12 @@
+[package]
+name = "snowden_response"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+with-inspector = ["bevy-inspector-egui"]
+
+[dependencies]
+paste = "1.0"
+bevy = "0.13.2"
+bevy-inspector-egui = { version = "0.24.0", optional = true }
