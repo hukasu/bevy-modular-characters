@@ -104,7 +104,7 @@ fn update_modular<T: components::ModularCharacter>(
             // Delete old
             bevy::log::trace!("Deleting old modular segment.");
             if !modular.entities().is_empty() {
-                commands.entity(entity).remove_children(&modular.entities());
+                commands.entity(entity).remove_children(modular.entities());
             }
             for entity in modular.entities_mut().drain(..) {
                 commands.entity(entity).despawn_recursive();
