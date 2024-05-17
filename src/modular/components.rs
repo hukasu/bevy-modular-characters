@@ -5,10 +5,10 @@ use bevy::{
 
 pub trait ModularCharacter: Component {
     fn id_mut(&mut self) -> &mut usize;
-    fn instance_id_mut(&mut self) -> &mut InstanceId;
+    fn instance_id_mut(&mut self) -> &mut Option<InstanceId>;
     fn entities_mut(&mut self) -> &mut Vec<Entity>;
     fn id(&self) -> &usize;
-    fn instance_id(&self) -> &InstanceId;
+    fn instance_id(&self) -> Option<&InstanceId>;
     fn entities(&self) -> &Vec<Entity>;
 }
 
@@ -18,7 +18,7 @@ macro_rules! create_modular_segment {
             #[derive(Debug, Component)]
             pub struct [<ModularCharacter $name>] {
                 pub id: usize,
-                pub instance_id: InstanceId,
+                pub instance_id: Option<InstanceId>,
                 pub entities: Vec<Entity>,
             }
             impl ModularCharacter for [<ModularCharacter $name>] {
@@ -26,7 +26,7 @@ macro_rules! create_modular_segment {
                     &mut self.id
                 }
 
-                fn instance_id_mut(&mut self) -> &mut InstanceId {
+                fn instance_id_mut(&mut self) -> &mut Option<InstanceId> {
                     &mut self.instance_id
                 }
 
@@ -38,8 +38,8 @@ macro_rules! create_modular_segment {
                     &self.id
                 }
 
-                fn instance_id(&self) -> &InstanceId {
-                    &self.instance_id
+                fn instance_id(&self) -> Option<&InstanceId> {
+                    self.instance_id.as_ref()
                 }
 
                 fn entities(&self) -> &Vec<Entity> {

@@ -57,8 +57,7 @@ fn spawn_text(mut commands: Commands, asset_server: Res<AssetServer>) {
         "Cycle through heads with Q and W\n\
         Cycle through bodies with E and R\n\
         Cycle through heads with T and Y\n\
-        Cycle through heads with U and I\n\
-        Do not press the buttons too fast",
+        Cycle through heads with U and I",
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,
@@ -85,22 +84,22 @@ fn spawn_modular(
             Name::new("Modular"),
             ModularCharacterHead {
                 id: 0,
-                instance_id: scene_spawner.spawn(asset_server.load(modular::HEADS[0])),
+                instance_id: Some(scene_spawner.spawn(asset_server.load(modular::HEADS[0]))),
                 entities: vec![],
             },
             ModularCharacterBody {
                 id: 0,
-                instance_id: scene_spawner.spawn(asset_server.load(modular::BODIES[0])),
+                instance_id: Some(scene_spawner.spawn(asset_server.load(modular::BODIES[0]))),
                 entities: vec![],
             },
             ModularCharacterLegs {
                 id: 0,
-                instance_id: scene_spawner.spawn(asset_server.load(modular::LEGS[0])),
+                instance_id: Some(scene_spawner.spawn(asset_server.load(modular::LEGS[0]))),
                 entities: vec![],
             },
             ModularCharacterFeet {
                 id: 0,
-                instance_id: scene_spawner.spawn(asset_server.load(modular::FEET[0])),
+                instance_id: Some(scene_spawner.spawn(asset_server.load(modular::FEET[0]))),
                 entities: vec![],
             },
         ))

@@ -12,6 +12,7 @@ use bevy::{
         entity::Entity,
         event::{EventReader, EventWriter},
         query::Changed,
+        schedule::IntoSystemConfigs,
         system::{Commands, Query, Res, ResMut},
     },
     hierarchy::{BuildChildren, Children, DespawnRecursiveExt, HierarchyQueryExt, Parent},
@@ -70,14 +71,46 @@ impl Plugin for ModularPlugin {
             .add_systems(Update, update_modular::<ModularCharacterBody>)
             .add_systems(Update, update_modular::<ModularCharacterLegs>)
             .add_systems(Update, update_modular::<ModularCharacterFeet>)
-            .add_systems(Update, cycle_modular_segment::<ModularCharacterHead, 0>)
-            .add_systems(Update, cycle_modular_segment::<ModularCharacterBody, 1>)
-            .add_systems(Update, cycle_modular_segment::<ModularCharacterLegs, 2>)
-            .add_systems(Update, cycle_modular_segment::<ModularCharacterFeet, 3>)
-            .add_systems(Update, reset_changed::<ModularCharacterHead>)
-            .add_systems(Update, reset_changed::<ModularCharacterBody>)
-            .add_systems(Update, reset_changed::<ModularCharacterLegs>)
-            .add_systems(Update, reset_changed::<ModularCharacterFeet>);
+            .add_systems(
+                Update,
+                cycle_modular_segment::<ModularCharacterHead, 0>
+                    .after(update_modular::<ModularCharacterHead>),
+            )
+            .add_systems(
+                Update,
+                cycle_modular_segment::<ModularCharacterBody, 1>
+                    .after(update_modular::<ModularCharacterBody>),
+            )
+            .add_systems(
+                Update,
+                cycle_modular_segment::<ModularCharacterLegs, 2>
+                    .after(update_modular::<ModularCharacterLegs>),
+            )
+            .add_systems(
+                Update,
+                cycle_modular_segment::<ModularCharacterFeet, 3>
+                    .after(update_modular::<ModularCharacterFeet>),
+            )
+            .add_systems(
+                Update,
+                reset_changed::<ModularCharacterHead>
+                    .after(cycle_modular_segment::<ModularCharacterHead, 0>),
+            )
+            .add_systems(
+                Update,
+                reset_changed::<ModularCharacterBody>
+                    .after(cycle_modular_segment::<ModularCharacterBody, 1>),
+            )
+            .add_systems(
+                Update,
+                reset_changed::<ModularCharacterLegs>
+                    .after(cycle_modular_segment::<ModularCharacterLegs, 2>),
+            )
+            .add_systems(
+                Update,
+                reset_changed::<ModularCharacterFeet>
+                    .after(cycle_modular_segment::<ModularCharacterFeet, 3>),
+            );
     }
 }
 
@@ -100,7 +133,10 @@ fn update_modular<T: components::ModularCharacter>(
     mut writer: EventWriter<ResetChanged>,
 ) {
     for (entity, mut modular) in &mut changed_modular {
-        if scene_spawner.instance_is_ready(*modular.instance_id()) {
+        let Some(scene_instance) = modular.instance_id().copied() else {
+            continue;
+        };
+        if scene_spawner.instance_is_ready(scene_instance) {
             // Delete old
             bevy::log::trace!("Deleting old modular segment.");
             if !modular.entities().is_empty() {
@@ -112,7 +148,7 @@ fn update_modular<T: components::ModularCharacter>(
 
             // Get MeshPrimitives
             let mesh_primitives = scene_spawner
-                .iter_instance_entities(*modular.instance_id())
+                .iter_instance_entities(scene_instance)
                 .filter(|node| mesh_primitives_query.contains(*node))
                 .collect::<Vec<_>>();
 
@@ -198,8 +234,9 @@ fn update_modular<T: components::ModularCharacter>(
                 modular.entities_mut().push(mesh_entity);
                 commands.entity(entity).add_child(mesh_entity);
             }
-
-            scene_spawner.despawn_instance(*modular.instance_id());
+            if let Some(instance) = modular.instance_id_mut().take() {
+                scene_spawner.despawn_instance(instance);
+            }
         } else {
             writer.send(ResetChanged(entity));
         }
@@ -219,22 +256,22 @@ fn cycle_modular_segment<T: ModularCharacter, const ID: usize>(
         (KeyCode::KeyU, KeyCode::KeyI),
     ];
     const MODULES: [&[&str]; 4] = [&HEADS, &BODIES, &LEGS, &FEET];
-    if key_input.just_pressed(KEYS[ID].0) {
-        let Ok(mut module) = modular.get_single_mut() else {
-            bevy::log::error!("Couldn't get single Head.");
-            return;
-        };
-        *module.id_mut() = module.id().wrapping_sub(1).min(MODULES[ID].len() - 1);
-        *module.instance_id_mut() =
-            scene_spawner.spawn(asset_server.load(MODULES[ID][*module.id()]));
+    let Ok(mut module) = modular.get_single_mut() else {
+        bevy::log::error!("Couldn't get single module.");
+        return;
+    };
+    *module.id_mut() = if key_input.just_pressed(KEYS[ID].0) {
+        module.id().wrapping_sub(1).min(MODULES[ID].len() - 1)
     } else if key_input.just_pressed(KEYS[ID].1) {
-        let Ok(mut head) = modular.get_single_mut() else {
-            bevy::log::error!("Couldn't get single Head.");
-            return;
-        };
-        *head.id_mut() = (head.id() + 1) % MODULES[ID].len();
-        *head.instance_id_mut() = scene_spawner.spawn(asset_server.load(MODULES[ID][*head.id()]));
+        (module.id() + 1) % MODULES[ID].len()
+    } else {
+        return;
+    };
+    if let Some(instance) = module.instance_id() {
+        scene_spawner.despawn_instance(*instance);
     }
+    *module.instance_id_mut() =
+        Some(scene_spawner.spawn(asset_server.load(MODULES[ID][*module.id()])));
 }
 
 fn reset_changed<T: ModularCharacter>(
