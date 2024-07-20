@@ -1,21 +1,28 @@
 mod modular;
 
-use std::collections::{btree_map::Entry, BTreeMap};
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    time::Duration,
+};
 
 use bevy::{
     animation::AnimationPlayer,
     app::{App, PluginGroup, Startup, Update},
-    asset::AssetServer,
+    asset::{AssetServer, Assets, Handle},
+    color::Color,
     core::Name,
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
         entity::Entity,
-        system::{Commands, Local, Query, Res, ResMut},
+        observer::Trigger,
+        system::{Commands, Local, Query, Res, ResMut, Resource},
+        world::OnAdd,
     },
+    gltf::GltfAssetLabel,
     math::Vec3,
     pbr::AmbientLight,
-    prelude::SpatialBundle,
-    render::{color::Color, texture::ImagePlugin},
+    prelude::{AnimationGraph, AnimationNodeIndex, AnimationTransitions, SpatialBundle},
+    render::texture::ImagePlugin,
     scene::{SceneBundle, SceneSpawner},
     text::TextStyle,
     transform::components::Transform,
@@ -46,10 +53,20 @@ fn main() {
         .add_systems(Startup, spawn_camera)
         .add_systems(Startup, spawn_models)
         .add_systems(Startup, spawn_modular)
+        .add_systems(Startup, setup_animation_graph)
         .add_systems(Update, cycle_through_animations);
+
+    // Observers
+    app.observe(animation_player_added);
 
     // Run
     app.run();
+}
+
+#[derive(Debug, Resource)]
+struct AnimationGraphCache {
+    animations: Vec<AnimationNodeIndex>,
+    graph: Handle<AnimationGraph>,
 }
 
 fn spawn_text(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -105,13 +122,39 @@ fn spawn_modular(
         ))
         .id();
     // Armature
-    scene_spawner.spawn_as_child(asset_server.load("Witch.gltf#Scene1"), entity);
+    scene_spawner.spawn_as_child(
+        asset_server.load(GltfAssetLabel::Scene(1).from_asset("Witch.gltf")),
+        entity,
+    );
+}
+
+fn setup_animation_graph(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+) {
+    let mut graph = AnimationGraph::new();
+    let animations = graph
+        .add_clips(
+            (0..24).map(|index| {
+                asset_server.load(GltfAssetLabel::Animation(index).from_asset("Witch.gltf"))
+            }),
+            1.0,
+            graph.root,
+        )
+        .collect();
+
+    let graph_handle = graphs.add(graph);
+    commands.insert_resource(AnimationGraphCache {
+        animations,
+        graph: graph_handle,
+    });
 }
 
 fn spawn_models(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("Witch.gltf#Scene0"),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("Witch.gltf")),
             transform: Transform::from_xyz(1., 0., 0.),
             ..Default::default()
         },
@@ -119,7 +162,7 @@ fn spawn_models(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("SciFi.gltf#Scene0"),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("SciFi.gltf")),
             transform: Transform::from_xyz(-1., 0., 0.),
             ..Default::default()
         },
@@ -127,19 +170,41 @@ fn spawn_models(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn cycle_through_animations(
-    mut players: Query<(Entity, &mut AnimationPlayer)>,
-    mut animation_id: Local<BTreeMap<Entity, usize>>,
-    asset_loader: Res<AssetServer>,
+fn animation_player_added(
+    trigger: Trigger<OnAdd, AnimationPlayer>,
+    mut commands: Commands,
+    graph_cache: Res<AnimationGraphCache>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    for (entity, mut player) in &mut players {
+    let mut transitions = AnimationTransitions::new();
+
+    transitions
+        .play(
+            &mut players.get_mut(trigger.entity()).unwrap(),
+            graph_cache.animations[0],
+            Duration::ZERO,
+        )
+        .resume();
+
+    commands
+        .entity(trigger.entity())
+        .insert(transitions)
+        .insert(graph_cache.graph.clone());
+}
+
+fn cycle_through_animations(
+    mut players: Query<(Entity, &mut AnimationPlayer, &mut AnimationTransitions)>,
+    mut animation_id: Local<BTreeMap<Entity, usize>>,
+    graph_cache: Res<AnimationGraphCache>,
+) {
+    for (entity, mut player, mut trasition) in &mut players {
         let next_to_play = match animation_id.entry(entity) {
             Entry::Vacant(e) => {
                 e.insert(0);
                 Some(0)
             }
             Entry::Occupied(mut e) => {
-                if player.is_finished() | player.is_paused() {
+                if player.all_finished() | player.all_paused() {
                     *e.get_mut() = (e.get() + 1) % 24;
                     Some(*e.get())
                 } else {
@@ -148,8 +213,12 @@ fn cycle_through_animations(
             }
         };
         if let Some(next_ani) = next_to_play {
-            player
-                .play(asset_loader.load(format!("Witch.gltf#Animation{next_ani}")))
+            trasition
+                .play(
+                    &mut player,
+                    graph_cache.animations[next_ani],
+                    Duration::from_millis(250),
+                )
                 .resume();
         }
     }
