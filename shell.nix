@@ -1,13 +1,17 @@
 let
-  nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-23.11";
-  rust-overlay = (import (builtins.fetchTarball "https://github.com/oxalica/rust-overlay/archive/master.tar.gz"));
+  nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-24.05";
+  rust-overlay = (import (builtins.fetchGit {
+    url = "https://github.com/oxalica/rust-overlay";
+    ref = "master";
+    rev = "16fb78d443c1970dda9a0bbb93070c9d8598a925";
+  }));
   pkgs = import nixpkgs { config = {}; overlays = [ rust-overlay ]; };
   system = builtins.currentSystem;
   extensions =
     (import (builtins.fetchGit {
       url = "https://github.com/nix-community/nix-vscode-extensions";
       ref = "master";
-      rev = "926cfa719fef55c3dab86d19b41fd8ee1fc8ea21";
+      rev = "a6df283f4762b079b4d09b25acb1d9bd95f6a472";
     })).extensions.${system};
   extensionsList = with extensions.vscode-marketplace; [
       rust-lang.rust-analyzer
